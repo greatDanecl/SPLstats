@@ -1,0 +1,12 @@
+{
+  "name": "dashboard-spl",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:data": "node scripts/build-data.mjs"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
