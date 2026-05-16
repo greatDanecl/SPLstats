@@ -1,91 +1,122 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard SPL</title>
 
   <link rel="stylesheet" href="./styles.css" />
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Versión no minificada para evitar error chart.umd.min.js.map -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 </head>
 
 <body>
-  <main class="page">
-    <header class="header">
-      <div>
-        <h1>Dashboard SPL</h1>
-        <p>Comparación de roles publicados y efectuados</p>
-      </div>
-    </header>
+  <header class="app-header">
+    <div>
+      <h1>Dashboard SPL</h1>
+      <p>Comparación de roles publicados y efectuados</p>
+    </div>
+  </header>
 
-    <section class="filters card">
-      <div class="filter-group">
-        <label for="fleetFilter">Flota</label>
-        <select id="fleetFilter">
-          <option value="">Selecciona flota</option>
-          <option value="Wide Body">Wide Body</option>
-          <option value="Narrow Body">Narrow Body</option>
-        </select>
-      </div>
+  <main class="app-shell">
+    <section class="filters-card">
+      <div class="filters-grid">
+        <label>
+          <span>Flota</span>
+          <select id="fleetFilter">
+            <option value="">Seleccione flota</option>
+          </select>
+        </label>
 
-      <div class="filter-group">
-        <label for="workerFilter">Trabajador</label>
-        <select id="workerFilter" disabled>
-          <option value="">Todos</option>
-        </select>
+        <label>
+          <span>Trabajador</span>
+          <select id="workerFilter" disabled>
+            <option value="">Todos los trabajadores</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Mes</span>
+          <select id="monthFilter" disabled>
+            <option value="">Todos los meses</option>
+          </select>
+        </label>
+
         <button id="clearFilters" type="button">Limpiar filtros</button>
       </div>
-
-      <div class="filter-group">
-        <label for="monthFilter">Mes</label>
-        <select id="monthFilter" disabled>
-          <option value="">Todos los meses</option>
-        </select>
-      </div>
     </section>
 
-    <section id="emptyState" class="empty-state card">
-      <h2>Selecciona una flota para comenzar</h2>
-      <p>El dashboard se cargará solo después de escoger Wide Body o Narrow Body.</p>
+    <section id="emptyState" class="empty-state">
+      <div class="empty-icon">✈️</div>
+      <h2>Seleccione una flota para comenzar</h2>
+      <p>El dashboard se mantiene vacío hasta escoger Wide Body o Narrow Body.</p>
     </section>
 
-    <section id="dashboardContent" class="dashboard hidden">
+    <section id="dashboardContent" class="dashboard-content hidden">
       <section id="kpiGrid" class="kpi-grid"></section>
 
-      <section class="grid">
-        <article class="card chart-card">
-          <div class="card-title">
-            <h2>Publicado v/s efectuado</h2>
-            <p>Total mensual acumulado</p>
+      <section class="charts-grid">
+        <article class="chart-card chart-card-wide">
+          <div class="chart-header">
+            <div>
+              <h2>Rol publicado vs efectuado</h2>
+              <p>Total mensual agregado. Un punto por mes.</p>
+            </div>
           </div>
-          <canvas id="publishedVsEffectedChart"></canvas>
+
+          <div class="chart-wrap">
+            <canvas id="publishedVsEffectedChart"></canvas>
+          </div>
         </article>
 
-        <article class="card chart-card">
-          <div class="card-title">
-            <h2>Horas por trabajador</h2>
-            <p>Según filtros seleccionados</p>
+        <article class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h2>Distribución de horas efectuadas</h2>
+              <p>Horas por trabajador según filtros activos.</p>
+            </div>
           </div>
-          <canvas id="workerHoursChart"></canvas>
+
+          <div class="chart-wrap">
+            <canvas id="workerHoursChart"></canvas>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h2>Adherencia</h2>
+              <p>Relación entre horas efectuadas y publicadas.</p>
+            </div>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="adherenceChart"></canvas>
+          </div>
         </article>
       </section>
 
-      <section class="card table-card">
-        <div class="card-title">
-          <h2>Detalle</h2>
-          <p>Registros filtrados</p>
+      <section class="table-card">
+        <div class="table-header">
+          <div>
+            <h2>Detalle por trabajador</h2>
+            <p>Resumen según flota, mes y trabajador seleccionado.</p>
+          </div>
         </div>
 
-        <div class="table-wrapper">
+        <div class="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Fecha</th>
                 <th>Trabajador</th>
                 <th>Flota</th>
-                <th>Tipo</th>
-                <th>Horas</th>
+                <th>Horas publicadas</th>
+                <th>Horas efectuadas</th>
+                <th>Diferencia</th>
+                <th>Adherencia</th>
+                <th>Horas YTD</th>
+                <th>Saldo DAN</th>
               </tr>
             </thead>
             <tbody id="detailTableBody"></tbody>
