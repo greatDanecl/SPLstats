@@ -177,11 +177,13 @@ function toNumber(value) {
 }
 
 function populateFleetFilter() {
-  const fleets = [...new Set(rawData.map((d) => d.fleet).filter(Boolean))].sort();
+  const fixedFleets = ["Wide Body", "Narrow Body"];
 
   els.fleetFilter.innerHTML = `
     <option value="">Seleccione flota</option>
-    ${fleets.map((fleet) => `<option value="${escapeHtml(fleet)}">${escapeHtml(fleet)}</option>`).join("")}
+    ${fixedFleets
+      .map((fleet) => `<option value="${escapeHtml(fleet)}">${escapeHtml(fleet)}</option>`)
+      .join("")}
   `;
 }
 
