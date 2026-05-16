@@ -164,8 +164,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{padding:10px;bo
 <main class="wrap">
 <section class="panel"><div class="filters"><div><label>1. Flota / tipo de operación</label><select id="operation"><option value="">Escoger flota…</option></select></div><div><label>2. Cargo</label><select id="rank" disabled><option value="">Primero escoge flota</option></select></div><div><label>3. Trabajador</label><select id="worker" disabled><option value="__overview__">Overview general</option></select></div><div><label>4. Mes</label><select id="period" disabled></select></div></div></section>
 <section id="empty" class="empty"><h2>Selecciona una flota para comenzar</h2><p>La primera vista queda intencionalmente sin datos. Al escoger Wide Body o Narrow Body se cargan los cargos disponibles, trabajadores de esa operación y el mes más reciente.</p></section>
-<section id="dashboard" class="hidden"><div class="kpis" id="kpis"></div><div class="grid"><div class="card" id="barHours"></div><div class="card" id="trend"></div><div class="card" id="mix"></div><div class="card" id="adherence"></div><div class="card full" id="comparison"></div></div></section>
-<section class="panel" style="margin-top:18px"><h2 style="margin:0;color:var(--navy)">Integridad de datos</h2><p class="note">La clasificación de flota se propaga al piloto completo usando la moda de flota observada en sus filas de vuelo con dato. Las filas sin flota del archivo antiguo quedan asignadas por esa regla si el piloto tiene otros vuelos clasificados.</p><div class="integrity" id="checks"></div><div class="grid"><div class="card"><h3>Filas por archivo</h3><div id="filesTable"></div></div><div class="card"><h3>Pilotos por operación y cargo</h3><div id="rankTable"></div></div></div></section>
+<section id="dashboard" class="hidden"><div class="kpis" id="kpis"></div><div class="grid"><div class="card full" id="lineHours"></div><div class="card" id="mix"></div><div class="card" id="comparison"></div></div></section>
 </main>
 <script id="payload" type="application/json">__DATA__</script>
 <script>
@@ -184,8 +183,8 @@ function table(rows, cols){ if(!rows.length) return '<p class="note">Sin datos</
 function init(){
   const ops = data.operations.filter(o => o !== 'Sin clasificar');
   setOptions(byId('operation'), ops, 'Escoger flota…');
-  renderIntegrity();
 }
+
 function renderIntegrity(){
   byId('checks').innerHTML = integrity.checks.map(c => `<div class="check"><span class="dot ${c.status}"></span><strong>${c.name}</strong><div class="note">${fmt.format(c.value)}</div></div>`).join('') + `<div class="check"><strong>Filas con flota nula original</strong><div class="note">${fmt.format(integrity.null_raw_fleet_rows)} filas / ${fmt.format(integrity.null_raw_fleet_pilots)} pilotos</div></div>`;
   byId('filesTable').innerHTML = table(integrity.rows_by_file, [{key:'source_file',label:'Archivo'}, {key:'rows',label:'Filas'}]);
@@ -206,6 +205,7 @@ function updateWorkersAndMonths(resetWorker=false){
   setOptions(byId('period'), periods, null, latestPeriod(periods)); byId('period').disabled=false;
 }
 function filterRows(rows){ const op=byId('operation').value, rank=byId('rank').value, per=byId('period').value; return rows.filter(r => r.operation_type===op && r.rank_code===rank && r.periodo===per); }
+function filterRowsAllMonths(rows){ const op=byId('operation').value, rank=byId('rank').value; return rows.filter(r => r.operation_type===op && r.rank_code===rank); }
 function sum(rows, key){ return rows.reduce((a,r)=>a+(Number(r[key])||0),0); }
 function renderDashboard(){
   const op=byId('operation').value, rank=byId('rank').value, per=byId('period').value, worker=byId('worker').value;
@@ -213,7 +213,6 @@ function renderDashboard(){
   byId('empty').classList.add('hidden'); byId('dashboard').classList.remove('hidden');
   let ov = filterRows(worker === '__overview__' ? data.overview : data.worker_overview).filter(r => worker === '__overview__' || r.crew_id === worker);
   let adh = filterRows(data.adherence); let mx = filterRows(worker === '__overview__' ? data.mix : data.worker_mix).filter(r => worker === '__overview__' || r.crew_id === worker);
-  let tr = data.trend.filter(r => r.operation_type===op && r.rank_code===rank);
   if(worker !== '__overview__'){ adh = adh.filter(r=>r.crew_id===worker); }
   const pub = sum(ov.filter(r=>r.tipo_rol==='Publicado'), 'horas'); const eje = sum(ov.filter(r=>r.tipo_rol==='Ejecutado'), 'horas');
   const pilots = worker === '__overview__' ? Math.max(...ov.map(r=>Number(r.pilotos)||0), 0) : 1;
@@ -222,22 +221,31 @@ function renderDashboard(){
   byId('kpis').innerHTML = [
     [worker === '__overview__' ? 'Pilotos' : 'Trabajador', worker === '__overview__' ? pilots : worker, selectedName], ['Horas publicadas', fmt.format(pub), per], ['Horas ejecutadas', fmt.format(eje), `Δ ${fmt.format(eje-pub)}`], ['Adherencia', pct(avgAdh), '0 = ninguna · 1 = total'], ['Vuelos / tramos', fmt.format(flights), 'Eventos LA*']
   ].map(k=>`<div class="card kpi"><div class="label">${k[0]}</div><div class="value">${k[1]}</div><div class="hint">${k[2]}</div></div>`).join('');
-  Plotly.react('barHours', [{x:ov.map(r=>r.tipo_rol), y:ov.map(r=>r.horas), type:'bar', marker:{color:colors}}], layout(worker === '__overview__' ? 'Horas por tipo de rol' : 'Horas del trabajador por tipo de rol'));
-  Plotly.react('trend', unique(tr.map(r=>r.tipo_rol)).map(tipo=>({x:tr.filter(r=>r.tipo_rol===tipo).map(r=>r.periodo), y:tr.filter(r=>r.tipo_rol===tipo).map(r=>r.horas), type:'scatter', mode:'lines+markers', name:tipo})), layout('Evolución mensual de horas del cargo/flota'));
-  const mixRows = mx.reduce((acc,r)=>{ const k=r.activity_type; acc[k]=(acc[k]||0)+(Number(r.eventos)||0); return acc; }, {}); Plotly.react('mix', [{labels:Object.keys(mixRows), values:Object.values(mixRows), type:'pie', hole:.42}], layout(worker === '__overview__' ? 'Mix de actividades' : 'Mix de actividades del trabajador'));
-  const adhRows = filterRows(data.adherence).sort((a,b)=>(Number(a.adherencia_horas)||0)-(Number(b.adherencia_horas)||0)).slice(0,20); Plotly.react('adherence', [{x:adhRows.map(r=>r.adherencia_horas), y:adhRows.map(r=>(r.nombre_completo||r.crew_id)), type:'bar', orientation:'h'}], layout('Menor adherencia por trabajador'));
+  renderLineHours(worker);
+  const mixRows = mx.reduce((acc,r)=>{ const k=r.activity_type; acc[k]=(acc[k]||0)+(Number(r.eventos)||0); return acc; }, {}); Plotly.react('mix', [{labels:Object.keys(mixRows), values:Object.values(mixRows), type:'pie', hole:.42}], layout(worker === '__overview__' ? 'Mix de actividades del mes seleccionado' : 'Mix de actividades del trabajador en el mes seleccionado'));
   renderComparison(adh, worker);
+}
+function renderLineHours(worker){
+  let rows = filterRowsAllMonths(worker === '__overview__' ? data.overview : data.worker_overview);
+  if(worker !== '__overview__') rows = rows.filter(r => r.crew_id === worker);
+  const periods = unique(rows.map(r=>r.periodo));
+  const tipos = unique(rows.map(r=>r.tipo_rol));
+  const traces = tipos.map(tipo => {
+    const y = periods.map(p => sum(rows.filter(r => r.periodo===p && r.tipo_rol===tipo), 'horas'));
+    return {x: periods, y, type:'scatter', mode:'lines+markers', name: tipo, line:{width:3}, marker:{size:8}};
+  });
+  Plotly.react('lineHours', traces, layout(worker === '__overview__' ? 'Publicado vs Ejecutado · todos los meses disponibles' : 'Publicado vs Ejecutado del trabajador · todos los meses disponibles'));
 }
 function renderComparison(rows, worker){
   if(worker==='__overview__'){
     const r = rows.sort((a,b)=>(Number(b.delta_horas)||0)-(Number(a.delta_horas)||0)).slice(0,20);
-    Plotly.react('comparison', [{x:r.map(x=>x.nombre_completo||x.crew_id), y:r.map(x=>x.delta_horas), type:'bar', name:'Delta horas'}], layout('Principales diferencias Ejecutado - Publicado'));
+    Plotly.react('comparison', [{x:r.map(x=>x.nombre_completo||x.crew_id), y:r.map(x=>x.delta_horas), type:'bar', name:'Delta horas'}], layout('Principales diferencias Ejecutado - Publicado · mes seleccionado'));
   } else {
     const r = rows[0] || {}; const cats=['Publicado','Ejecutado','Adherencia'];
     Plotly.react('comparison', [
       {x:cats, y:[r.Publicado||0, r.Ejecutado||0, r.adherencia_horas||0], type:'bar', name:'Trabajador'},
       {x:cats, y:[r.peer_avg_publicado||0, r.peer_avg_ejecutado||0, r.peer_avg_adherencia||0], type:'bar', name:'Promedio mismo cargo/flota'}
-    ], layout('Trabajador vs promedio del mismo cargo y operación'));
+    ], layout('Trabajador vs promedio del mismo cargo y operación · mes seleccionado'));
   }
 }
 byId('operation').addEventListener('change', onOperation); byId('rank').addEventListener('change', ()=>{updateWorkersAndMonths(true); renderDashboard();}); byId('worker').addEventListener('change', renderDashboard); byId('period').addEventListener('change', renderDashboard);
