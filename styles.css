@@ -17,9 +17,21 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+}
+
 body {
+  min-height: 100%;
   margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: var(--text);
   background:
     radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34rem),
@@ -27,6 +39,8 @@ body {
 }
 
 .app-header {
+  max-width: 1500px;
+  margin: 0 auto;
   padding: 32px 32px 12px;
 }
 
@@ -34,17 +48,19 @@ body {
   margin: 0;
   font-size: clamp(28px, 4vw, 42px);
   letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
 .app-header p {
   margin: 8px 0 0;
   color: var(--muted);
+  font-size: 16px;
 }
 
 .app-shell {
-  padding: 20px 32px 48px;
   max-width: 1500px;
   margin: 0 auto;
+  padding: 20px 32px 48px;
 }
 
 .filters-card,
@@ -64,7 +80,7 @@ body {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: 1fr 1.2fr 1fr auto;
   gap: 14px;
   align-items: end;
 }
@@ -72,6 +88,7 @@ body {
 label {
   display: grid;
   gap: 6px;
+  margin: 0;
 }
 
 label span {
@@ -90,18 +107,31 @@ button {
   color: var(--text);
   padding: 0 12px;
   font: inherit;
+  outline: none;
+}
+
+select:focus,
+button:focus {
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
 }
 
 button {
+  min-width: 160px;
   cursor: pointer;
   font-weight: 800;
   background: var(--primary);
   color: white;
   border-color: var(--primary);
+  padding: 0 18px;
 }
 
 button:hover {
   filter: brightness(0.96);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 .empty-state {
@@ -114,6 +144,8 @@ button:hover {
 
 .empty-state h2 {
   margin: 12px 0 6px;
+  font-size: 24px;
+  letter-spacing: -0.03em;
 }
 
 .empty-state p {
@@ -250,71 +282,3 @@ button:hover {
 
 .table-scroll {
   overflow: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 960px;
-}
-
-th,
-td {
-  text-align: left;
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-
-th {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-td.numeric {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 9px;
-  font-size: 12px;
-  font-weight: 800;
-  background: var(--primary-soft);
-  color: var(--primary);
-}
-
-@media (max-width: 1200px) {
-  .kpi-grid {
-    grid-template-columns: repeat(3, minmax(160px, 1fr));
-  }
-
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .app-header,
-  .app-shell {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  .filters-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .chart-wrap {
-    height: 300px;
-  }
-}
