@@ -3,24 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard SPL</title>
+  <title>Dashboard de Roles - SPL</title>
 
   <link rel="stylesheet" href="./styles.css" />
-
-  <!-- Versión no minificada para evitar error chart.umd.min.js.map -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 </head>
 
 <body>
-  <header class="app-header">
-  <div class="brand">
-    <img src="./assets/logo.png" alt="Logo SPL" class="brand-logo" />
-    <div>
-      <h1>Dashboard SPL</h1>
-      <p>Comparación de roles publicados y efectuados</p>
+  <header class="brand-header">
+    <div class="brand-inner">
+      <div class="brand-logo-box">
+        <img src="./assets/logo.png" alt="SPL" class="brand-logo" />
+      </div>
+
+      <div class="brand-divider"></div>
+
+      <div class="brand-title">
+        <h1>Dashboard de Roles</h1>
+        <p>SINDICATO DE PILOTOS LATAM</p>
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
   <main class="app-shell">
     <section class="filters-card">
@@ -29,6 +32,13 @@
           <span>Flota</span>
           <select id="fleetFilter">
             <option value="">Seleccione flota</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Cargo</span>
+          <select id="rankFilter" disabled>
+            <option value="">Todos los cargos</option>
           </select>
         </label>
 
@@ -67,7 +77,6 @@
               <p>Total mensual agregado. Un punto por mes.</p>
             </div>
           </div>
-
           <div class="chart-wrap">
             <canvas id="publishedVsEffectedChart"></canvas>
           </div>
@@ -80,7 +89,6 @@
               <p>Horas por trabajador según filtros activos.</p>
             </div>
           </div>
-
           <div class="chart-wrap">
             <canvas id="workerHoursChart"></canvas>
           </div>
@@ -93,7 +101,6 @@
               <p>Relación entre horas efectuadas y publicadas.</p>
             </div>
           </div>
-
           <div class="chart-wrap">
             <canvas id="adherenceChart"></canvas>
           </div>
@@ -104,7 +111,7 @@
         <div class="table-header">
           <div>
             <h2>Detalle por trabajador</h2>
-            <p>Resumen según flota, mes y trabajador seleccionado.</p>
+            <p>Resumen según flota, cargo, mes y trabajador seleccionado.</p>
           </div>
         </div>
 
@@ -114,6 +121,7 @@
               <tr>
                 <th>Trabajador</th>
                 <th>Flota</th>
+                <th>Cargo</th>
                 <th>Horas publicadas</th>
                 <th>Horas efectuadas</th>
                 <th>Diferencia</th>
