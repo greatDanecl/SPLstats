@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-05-16T20:35:48+00:00",
+  "total_rows": 149926,
+  "pilots": 461,
+  "periods": [
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05"
+  ],
+  "source_files": [
+    "Efectuado SPL ENE26 (1).xlsx",
+    "Publicado SPL FEB26 (1).xlsx",
+    "Publicado SindPLA ENE26 (1).xlsx",
+    "Roles EFECT Ab26 y PUB SPL May26 (1).xlsx",
+    "Roles EFECT Mar26 y PUB SPL Abr26 (2).xlsx",
+    "Roles SPL Efectuado Feb26 Publicado Mar26 (1).xlsx"
+  ],
+  "rows_by_file": [
+    {
+      "source_file": "Efectuado SPL ENE26 (1).xlsx",
+      "rows": 19556
+    },
+    {
+      "source_file": "Publicado SPL FEB26 (1).xlsx",
+      "rows": 16856
+    },
+    {
+      "source_file": "Publicado SindPLA ENE26 (1).xlsx",
+      "rows": 18753
+    },
+    {
+      "source_file": "Roles EFECT Ab26 y PUB SPL May26 (1).xlsx",
+      "rows": 30773
+    },
+    {
+      "source_file": "Roles EFECT Mar26 y PUB SPL Abr26 (2).xlsx",
+      "rows": 32293
+    },
+    {
+      "source_file": "Roles SPL Efectuado Feb26 Publicado Mar26 (1).xlsx",
+      "rows": 31695
+    }
+  ],
+  "operation_counts": [
+    {
+      "operation_type": "Narrow Body",
+      "pilotos": 235
+    },
+    {
+      "operation_type": "Sin clasificar",
+      "pilotos": 5
+    },
+    {
+      "operation_type": "Wide Body",
+      "pilotos": 221
+    }
+  ],
+  "rank_counts": [
+    {
+      "operation_type": "Narrow Body",
+      "rank_code": "CP",
+      "pilotos": 124
+    },
+    {
+      "operation_type": "Narrow Body",
+      "rank_code": "FO",
+      "pilotos": 111
+    },
+    {
+      "operation_type": "Sin clasificar",
+      "rank_code": "CP",
+      "pilotos": 3
+    },
+    {
+      "operation_type": "Sin clasificar",
+      "rank_code": "FO",
+      "pilotos": 2
+    },
+    {
+      "operation_type": "Wide Body",
+      "rank_code": "CP",
+      "pilotos": 117
+    },
+    {
+      "operation_type": "Wide Body",
+      "rank_code": "FO",
+      "pilotos": 104
+    }
+  ],
+  "null_raw_fleet_rows": 68858,
+  "null_raw_fleet_pilots": 461,
+  "unclassified_pilots": 5,
+  "fleet_conflict_pilots": 79,
+  "unknown_activity_rows": 14673,
+  "checks": [
+    {
+      "name": "Archivos de rol leídos",
+      "status": "ok",
+      "value": 6
+    },
+    {
+      "name": "Filas normalizadas",
+      "status": "ok",
+      "value": 149926
+    },
+    {
+      "name": "Pilotos clasificados por habilitación",
+      "status": "warn",
+      "value": 456
+    },
+    {
+      "name": "Pilotos sin clasificación",
+      "status": "warn",
+      "value": 5
+    },
+    {
+      "name": "Pilotos con flota mixta detectada",
+      "status": "warn",
+      "value": 79
+    },
+    {
+      "name": "Filas con actividad no clasificada",
+      "status": "warn",
+      "value": 14673
+    }
+  ]
+}
