@@ -5,95 +5,37 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const XLSX = require("xlsx");
+
 const ROOT = process.cwd();
 const INPUT_DIR = path.join(ROOT, "input");
 const OUTPUT_DIR = path.join(ROOT, "data");
 const OUTPUT_FILE = path.join(OUTPUT_DIR, "dashboard-data.json");
 
 const SUPPORTED_EXTENSIONS = new Set([".xlsx", ".xls"]);
-
-const DATE_KEYS = [
-  "date",
-  "fecha",
-  "Fecha",
-  "FECHA",
-  "flight_date",
-  "duty_date",
-  "DIA",
-  "Día",
-  "dia"
-];
-
-const HOURS_KEYS = [
-  "hours",
-  "Horas",
-  "horas",
-  "HRS",
-  "hrs",
-  "block_hours",
-  "total_hours",
-  "BLH",
-  "blh"
-];
-
-const WORKER_ID_KEYS = [
-  "worker_id",
-  "trabajador_id",
-  "employee_id",
-  "rut",
-  "RUT",
-  "codigo",
-  "Código",
-  "CODIGO",
-  "crew_id",
-  "legajo"
-];
-
-const WORKER_NAME_KEYS = [
-  "worker_name",
-  "name",
-  "nombre",
-  "Nombre",
-  "TRABAJADOR",
-  "Trabajador",
-  "tripulante",
-  "Tripulante",
-  "crew_name"
-];
-
-const AIRCRAFT_KEYS = [
-  "aircraft_type_desc",
-  "AIRCRAFT_TYPE_DESC",
-  "Aircraft Type Desc",
-  "aircraftType",
-  "aircraft_type",
-  "tipo_avion",
-  "Tipo Avion"
-];
+const MONTHS = {
+  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
+  ENE: 0, ABR: 3, AGO: 7, DIC: 11
+};
 
 main();
 
 function main() {
   ensureDirectory(OUTPUT_DIR);
 
-  if (!fs.existsSync(INPUT_DIR)) {
-    throw new Error(`No existe la carpeta ${INPUT_DIR}`);
-  }
-
   const files = fs
     .readdirSync(INPUT_DIR)
     .filter((file) => SUPPORTED_EXTENSIONS.has(path.extname(file).toLowerCase()))
     .sort();
 
-  const records = [];
+  const tempRows = [];
 
   for (const file of files) {
     const filePath = path.join(INPUT_DIR, file);
-    const source = inferSourceFromFilename(file);
 
     const workbook = XLSX.readFile(filePath, {
       cellDates: true,
-      raw: false
+      raw: true
     });
 
     for (const sheetName of workbook.SheetNames) {
@@ -101,22 +43,41 @@ function main() {
 
       const rows = XLSX.utils.sheet_to_json(sheet, {
         defval: "",
-        raw: false
+        raw: true
       });
 
       for (const row of rows) {
-        const normalized = normalizeRow(row, {
-          file,
-          sheetName,
-          source
-        });
+        const normalized = normalizeRow(row, file, sheetName);
 
         if (normalized) {
-          records.push(normalized);
+          tempRows.push(normalized);
         }
       }
     }
   }
+
+  const workerFleet = buildWorkerFleetMap(tempRows);
+
+  const records = tempRows
+    .map((row) => {
+      const fleet = row.fleet || workerFleet.get(row.worker_id) || "";
+
+      if (!fleet) return null;
+
+      return {
+        date: row.date,
+        worker_id: row.worker_id,
+        worker_name: row.worker_name,
+        aircraft_type_desc: row.aircraft_type_desc,
+        fleet,
+        source: row.source,
+        hours: row.hours,
+        source_file: row.source_file,
+        source_sheet: row.source_sheet
+      };
+    })
+    .filter(Boolean)
+    .filter((row) => row.source === "publicado" || row.source === "efectuado");
 
   const payload = {
     generated_at: new Date().toISOString(),
@@ -129,64 +90,111 @@ function main() {
   console.log(`OK: ${records.length} registros escritos en ${OUTPUT_FILE}`);
 }
 
-function normalizeRow(row, meta) {
-  const dateValue = pick(row, DATE_KEYS);
-  const hoursValue = pick(row, HOURS_KEYS);
-  const aircraftValue = pick(row, AIRCRAFT_KEYS);
+function normalizeRow(row, file, sheetName) {
+  const workerId = cleanText(
+    pick(row, [
+      "crew_id",
+      "Staff Num",
+      "staff_num",
+      "worker_id",
+      "employee_id",
+      "rut",
+      "RUT",
+      "codigo",
+      "Código"
+    ])
+  );
 
-  const date = normalizeDate(dateValue);
-  const hours = normalizeNumber(hoursValue);
-  const aircraft_type_desc = String(aircraftValue || "").trim();
+  if (!workerId) return null;
 
-  if (!date) return null;
-  if (!Number.isFinite(hours)) return null;
-  if (!aircraft_type_desc) return null;
-
-  const fleet = inferFleet(aircraft_type_desc);
-
-  if (!fleet) return null;
-
-  const workerId =
-    pick(row, WORKER_ID_KEYS) ||
-    pick(row, WORKER_NAME_KEYS) ||
-    "SIN_ID";
+  const firstName = cleanText(pick(row, ["First Name", "first_name"]));
+  const lastName = cleanText(pick(row, ["Last Name", "last_name"]));
 
   const workerName =
-    pick(row, WORKER_NAME_KEYS) ||
-    pick(row, WORKER_ID_KEYS) ||
-    "Sin nombre";
+    cleanText(pick(row, ["nombre_completo", "worker_name", "name", "Nombre", "Trabajador"])) ||
+    cleanText(`${lastName} ${firstName}`) ||
+    workerId;
+
+  const dateValue = pick(row, [
+    "str_dt",
+    "Str Dt",
+    "Str Date",
+    "date",
+    "fecha",
+    "Fecha",
+    "DIA",
+    "dia"
+  ]);
+
+  const date = normalizeDate(dateValue);
+
+  if (!date) return null;
+
+  const aircraft =
+    cleanText(pick(row, ["aircraft_type_desc", "Fleet", "fleet", "aircraft_type", "Aircraft Type"])) ||
+    "";
+
+  const fleet = inferFleet(aircraft);
+
+  const blockTime = pick(row, [
+    "block_time",
+    "Block Time",
+    "BLH",
+    "blh",
+    "hours",
+    "Horas",
+    "horas"
+  ]);
+
+  const hours = normalizeHours(blockTime);
+
+  const source =
+    inferSourceFromRow(row) ||
+    inferSourceFromFilename(file);
 
   return {
     date,
-    worker_id: String(workerId).trim(),
-    worker_name: String(workerName).trim(),
-    aircraft_type_desc,
+    worker_id: normalizeWorkerId(workerId),
+    worker_name: workerName,
+    aircraft_type_desc: aircraft,
     fleet,
-    source: meta.source,
+    source,
     hours,
-    source_file: meta.file,
-    source_sheet: meta.sheetName
+    source_file: file,
+    source_sheet: sheetName
   };
 }
 
-function pick(row, keys) {
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(row, key)) {
-      const value = row[key];
+function buildWorkerFleetMap(rows) {
+  const map = new Map();
+
+  for (const row of rows) {
+    if (row.worker_id && row.fleet && !map.has(row.worker_id)) {
+      map.set(row.worker_id, row.fleet);
+    }
+  }
+
+  return map;
+}
+
+function pick(row, aliases) {
+  for (const alias of aliases) {
+    if (Object.prototype.hasOwnProperty.call(row, alias)) {
+      const value = row[alias];
       if (value !== null && value !== undefined && String(value).trim() !== "") {
         return value;
       }
     }
   }
 
-  const normalizedLookup = new Map();
+  const lookup = new Map();
 
   for (const [key, value] of Object.entries(row)) {
-    normalizedLookup.set(normalizeHeader(key), value);
+    lookup.set(normalizeHeader(key), value);
   }
 
-  for (const key of keys) {
-    const value = normalizedLookup.get(normalizeHeader(key));
+  for (const alias of aliases) {
+    const value = lookup.get(normalizeHeader(alias));
 
     if (value !== null && value !== undefined && String(value || "").trim() !== "") {
       return value;
@@ -205,6 +213,20 @@ function normalizeHeader(value) {
     .replace(/^_+|_+$/g, "");
 }
 
+function cleanText(value) {
+  return String(value ?? "").trim();
+}
+
+function normalizeWorkerId(value) {
+  const text = cleanText(value);
+
+  if (/^\d+(\.0)?$/.test(text)) {
+    return String(Number(text));
+  }
+
+  return text.replace(/^0+/, "") || text;
+}
+
 function normalizeDate(value) {
   if (!value) return "";
 
@@ -217,7 +239,7 @@ function normalizeDate(value) {
     return toIsoDate(new Date(excelEpoch.getTime() + value * 86400000));
   }
 
-  const text = String(value).trim();
+  const text = String(value).trim().toUpperCase();
 
   if (!text) return "";
 
@@ -226,6 +248,7 @@ function normalizeDate(value) {
   }
 
   const dmy = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+
   if (dmy) {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]) - 1;
@@ -234,6 +257,20 @@ function normalizeDate(value) {
     if (year < 100) year += 2000;
 
     return toIsoDate(new Date(year, month, day));
+  }
+
+  const ddMmmYyyy = text.match(/^(\d{1,2})([A-ZÁÉÍÓÚÑ]{3})(\d{4})$/);
+
+  if (ddMmmYyyy) {
+    const day = Number(ddMmmYyyy[1]);
+    const monthText = ddMmmYyyy[2]
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+    const year = Number(ddMmmYyyy[3]);
+
+    if (MONTHS[monthText] !== undefined) {
+      return toIsoDate(new Date(year, MONTHS[monthText], day));
+    }
   }
 
   const parsed = new Date(text);
@@ -253,23 +290,57 @@ function toIsoDate(date) {
   return `${year}-${month}-${day}`;
 }
 
-function normalizeNumber(value) {
-  if (typeof value === "number") return value;
-
+function normalizeHours(value) {
   if (value === null || value === undefined || value === "") return 0;
 
-  const text = String(value)
-    .replace(/\./g, "")
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, "");
+  if (value instanceof Date && !isNaN(value)) {
+    return value.getHours() + value.getMinutes() / 60 + value.getSeconds() / 3600;
+  }
 
-  const number = Number(text);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0;
 
-  return Number.isFinite(number) ? number : 0;
+    if (value > 0 && value <= 1) {
+      return round2(value * 24);
+    }
+
+    return round2(value);
+  }
+
+  const text = String(value).trim();
+
+  if (!text) return 0;
+
+  const time = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+
+  if (time) {
+    const hours = Number(time[1]);
+    const minutes = Number(time[2]);
+    const seconds = Number(time[3] || 0);
+
+    return round2(hours + minutes / 60 + seconds / 3600);
+  }
+
+  const number = Number(
+    text
+      .replace(/\./g, "")
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "")
+  );
+
+  if (!Number.isFinite(number)) return 0;
+
+  if (number > 0 && number <= 1) {
+    return round2(number * 24);
+  }
+
+  return round2(number);
 }
 
 function inferFleet(value) {
-  const text = String(value || "").toUpperCase().trim();
+  const text = cleanText(value).toUpperCase();
+
+  if (!text) return "";
 
   if (text.includes("787")) return "Wide Body";
 
@@ -286,13 +357,35 @@ function inferFleet(value) {
   return "";
 }
 
+function inferSourceFromRow(row) {
+  const value = cleanText(
+    pick(row, [
+      "tipo_rol",
+      "Tipo Rol",
+      "source",
+      "Source",
+      "origen",
+      "Origen"
+    ])
+  ).toLowerCase();
+
+  if (value.includes("ejecut") || value.includes("efect")) return "efectuado";
+  if (value.includes("pub")) return "publicado";
+
+  return "";
+}
+
 function inferSourceFromFilename(file) {
   const text = file.toLowerCase();
 
-  if (text.includes("pub")) return "publicado";
-  if (text.includes("efect")) return "efectuado";
+  if (text.includes("publicado") || text.includes("pub")) return "publicado";
+  if (text.includes("efectuado") || text.includes("efect")) return "efectuado";
 
-  return "desconocido";
+  return "";
+}
+
+function round2(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function ensureDirectory(dir) {
