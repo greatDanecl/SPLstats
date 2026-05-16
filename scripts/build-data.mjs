@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import * as XLSX from "xlsx";
+import { createRequire } from "node:module";
 
+const require = createRequire(import.meta.url);
+const XLSX = require("xlsx");
 const ROOT = process.cwd();
 const INPUT_DIR = path.join(ROOT, "input");
 const OUTPUT_DIR = path.join(ROOT, "data");
