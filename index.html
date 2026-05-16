@@ -1,1 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard SPL</title>
 
+  <link rel="stylesheet" href="./styles.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>Dashboard SPL</h1>
+        <p>Comparación de roles publicados y efectuados</p>
+      </div>
+    </header>
+
+    <section class="filters card">
+      <div class="filter-group">
+        <label for="fleetFilter">Flota</label>
+        <select id="fleetFilter">
+          <option value="">Selecciona flota</option>
+          <option value="Wide Body">Wide Body</option>
+          <option value="Narrow Body">Narrow Body</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="workerFilter">Trabajador</label>
+        <select id="workerFilter" disabled>
+          <option value="">Todos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="monthFilter">Mes</label>
+        <select id="monthFilter" disabled>
+          <option value="">Todos los meses</option>
+        </select>
+      </div>
+    </section>
+
+    <section id="emptyState" class="empty-state card">
+      <h2>Selecciona una flota para comenzar</h2>
+      <p>El dashboard se cargará solo después de escoger Wide Body o Narrow Body.</p>
+    </section>
+
+    <section id="dashboardContent" class="dashboard hidden">
+      <section id="kpiGrid" class="kpi-grid"></section>
+
+      <section class="grid">
+        <article class="card chart-card">
+          <div class="card-title">
+            <h2>Publicado v/s efectuado</h2>
+            <p>Total mensual acumulado</p>
+          </div>
+          <canvas id="publishedVsEffectedChart"></canvas>
+        </article>
+
+        <article class="card chart-card">
+          <div class="card-title">
+            <h2>Horas por trabajador</h2>
+            <p>Según filtros seleccionados</p>
+          </div>
+          <canvas id="workerHoursChart"></canvas>
+        </article>
+      </section>
+
+      <section class="card table-card">
+        <div class="card-title">
+          <h2>Detalle</h2>
+          <p>Registros filtrados</p>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Trabajador</th>
+                <th>Flota</th>
+                <th>Tipo</th>
+                <th>Horas</th>
+              </tr>
+            </thead>
+            <tbody id="detailTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
