@@ -224,14 +224,14 @@ function bindEvents() {
   els.monthFilter.addEventListener("change", render);
   els.workerFilter.addEventListener("change", render);
 
-  els.clearFilters.addEventListener("click", () => {
-    els.fleetFilter.value = "";
-    els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
-    els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
-    els.monthFilter.disabled = true;
-    els.workerFilter.disabled = true;
-    render();
-  });
+  els.clearFilters?.addEventListener("click", () => {
+  els.fleetFilter.value = "";
+  els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
+  els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
+  els.monthFilter.disabled = true;
+  els.workerFilter.disabled = true;
+  render();
+});
 }
 
 function render() {
