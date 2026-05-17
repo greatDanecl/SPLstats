@@ -10,6 +10,7 @@ let charts = {
 
 const els = {
   fleetFilter: document.getElementById("fleetFilter"),
+  rankFilter: document.getElementById("rankFilter"),
   monthFilter: document.getElementById("monthFilter"),
   workerFilter: document.getElementById("workerFilter"),
   clearFilters: document.getElementById("clearFilters"),
@@ -30,7 +31,6 @@ async function init() {
     }
 
     const payload = await response.json();
-
     rawData = normalizeRecords(payload.records || payload || []);
 
     populateFleetFilter();
@@ -55,6 +55,14 @@ function normalizeRecords(records) {
         record.aircraft_type_desc ||
         record.AIRCRAFT_TYPE_DESC ||
         record.aircraftType ||
+        "";
+
+      const rankValue =
+        record.rank_code ||
+        record.Rank_Code ||
+        record.RANK_CODE ||
+        record.rank ||
+        record.cargo ||
         "";
 
       return {
@@ -83,7 +91,9 @@ function normalizeRecords(records) {
           "Sin nombre"
         ).trim(),
         aircraft_type_desc: String(aircraftType).trim(),
-        fleet: inferFleet(aircraftType),
+        fleet: record.fleet || inferFleet(aircraftType),
+        rank_code: normalizeRankCode(rankValue),
+        rank_label: normalizeRankLabel(rankValue),
         source: normalizeSource(record.source || record.tipo || record.Tipo || record.origen || ""),
         hours: toNumber(
           record.hours ||
@@ -146,7 +156,13 @@ function inferFleet(value) {
 
   if (text.includes("787")) return "Wide Body";
 
-  if (/32[A-Z0-9]/.test(text) || text.includes("32X") || text.includes("320") || text.includes("321") || text.includes("319")) {
+  if (
+    text.includes("32X") ||
+    text.includes("320") ||
+    text.includes("321") ||
+    text.includes("319") ||
+    /^32[A-Z0-9]/.test(text)
+  ) {
     return "Narrow Body";
   }
 
@@ -158,6 +174,25 @@ function normalizeSource(value) {
 
   if (text.includes("pub")) return "publicado";
   if (text.includes("efect")) return "efectuado";
+  if (text.includes("ejecut")) return "efectuado";
+
+  return "";
+}
+
+function normalizeRankCode(value) {
+  const text = String(value || "").trim().toUpperCase();
+
+  if (text === "CP" || text.includes("CAP")) return "CP";
+  if (text === "FO" || text.includes("PRI")) return "FO";
+
+  return "";
+}
+
+function normalizeRankLabel(value) {
+  const code = normalizeRankCode(value);
+
+  if (code === "CP") return "Capitán";
+  if (code === "FO") return "Primer Oficial";
 
   return "";
 }
@@ -187,6 +222,22 @@ function populateFleetFilter() {
   `;
 }
 
+function populateRankFilter(records) {
+  const ranks = [
+    { code: "CP", label: "Capitán" },
+    { code: "FO", label: "Primer Oficial" }
+  ].filter((rank) => records.some((d) => d.rank_code === rank.code));
+
+  els.rankFilter.innerHTML = `
+    <option value="">Todos los cargos</option>
+    ${ranks
+      .map((rank) => `<option value="${rank.code}">${rank.label}</option>`)
+      .join("")}
+  `;
+
+  els.rankFilter.disabled = !els.fleetFilter.value;
+}
+
 function populateMonthFilter(records) {
   const months = [...new Set(records.map((d) => d.month).filter(Boolean))].sort();
 
@@ -213,12 +264,34 @@ function populateWorkerFilter(records) {
 
 function bindEvents() {
   els.fleetFilter.addEventListener("change", () => {
+    els.rankFilter.value = "";
     els.monthFilter.value = "";
     els.workerFilter.value = "";
 
     const fleetRecords = rawData.filter((d) => d.fleet === els.fleetFilter.value);
+
+    populateRankFilter(fleetRecords);
     populateMonthFilter(fleetRecords);
     populateWorkerFilter(fleetRecords);
+
+    render();
+  });
+
+  els.rankFilter.addEventListener("change", () => {
+    els.monthFilter.value = "";
+    els.workerFilter.value = "";
+
+    const fleet = els.fleetFilter.value;
+    const rank = els.rankFilter.value;
+
+    let records = rawData.filter((d) => d.fleet === fleet);
+
+    if (rank) {
+      records = records.filter((d) => d.rank_code === rank);
+    }
+
+    populateMonthFilter(records);
+    populateWorkerFilter(records);
 
     render();
   });
@@ -227,13 +300,17 @@ function bindEvents() {
   els.workerFilter.addEventListener("change", render);
 
   els.clearFilters?.addEventListener("click", () => {
-  els.fleetFilter.value = "";
-  els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
-  els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
-  els.monthFilter.disabled = true;
-  els.workerFilter.disabled = true;
-  render();
-});
+    els.fleetFilter.value = "";
+    els.rankFilter.innerHTML = `<option value="">Todos los cargos</option>`;
+    els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
+    els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
+
+    els.rankFilter.disabled = true;
+    els.monthFilter.disabled = true;
+    els.workerFilter.disabled = true;
+
+    render();
+  });
 }
 
 function render() {
@@ -249,10 +326,15 @@ function render() {
   els.emptyState.classList.add("hidden");
   els.dashboardContent.classList.remove("hidden");
 
+  const rank = els.rankFilter.value;
   const month = els.monthFilter.value;
   const workerId = els.workerFilter.value;
 
-  const fleetRecordsAllMonths = rawData.filter((d) => d.fleet === fleet);
+  let fleetRecordsAllMonths = rawData.filter((d) => d.fleet === fleet);
+
+  if (rank) {
+    fleetRecordsAllMonths = fleetRecordsAllMonths.filter((d) => d.rank_code === rank);
+  }
 
   let filteredRecords = fleetRecordsAllMonths;
 
@@ -273,12 +355,10 @@ function renderKpis(filteredRecords, fleetRecordsAllMonths, workerId) {
   const publishedHours = sumHours(filteredRecords, "publicado");
   const effectedHours = sumHours(filteredRecords, "efectuado");
   const difference = effectedHours - publishedHours;
-  const adherence = publishedHours > 0 ? effectedHours / publishedHours : null;
 
   const selectedYear = getSelectedCalendarYear(fleetRecordsAllMonths);
   const ytdHours = getYtdHours(workerId, selectedYear, fleetRecordsAllMonths);
   const remainingDanHours = Math.max(0, DAN_MAX_ANUAL - ytdHours);
-
   const workerCount = getWorkers(filteredRecords).length;
 
   els.kpiGrid.innerHTML = `
@@ -316,7 +396,6 @@ function renderCharts(filteredRecords, fleetRecordsAllMonths, workerId) {
 
 function renderPublishedVsEffectedChart(records) {
   const monthlyData = buildMonthlyPublishedVsEffected(records);
-
   const ctx = document.getElementById("publishedVsEffectedChart");
 
   if (charts.publishedVsEffected) charts.publishedVsEffected.destroy();
@@ -362,13 +441,8 @@ function buildMonthlyPublishedVsEffected(records) {
       };
     }
 
-    if (d.source === "publicado") {
-      monthly[d.month].publicado += Number(d.hours || 0);
-    }
-
-    if (d.source === "efectuado") {
-      monthly[d.month].efectuado += Number(d.hours || 0);
-    }
+    if (d.source === "publicado") monthly[d.month].publicado += Number(d.hours || 0);
+    if (d.source === "efectuado") monthly[d.month].efectuado += Number(d.hours || 0);
   });
 
   return Object.values(monthly).sort((a, b) => a.month.localeCompare(b.month));
@@ -473,6 +547,7 @@ function defaultChartOptions(unit) {
 
 function renderTable(filteredRecords, fleetRecordsAllMonths) {
   const selectedYear = getSelectedCalendarYear(fleetRecordsAllMonths);
+
   const summary = summarizeByWorker(filteredRecords).sort((a, b) =>
     a.worker_name.localeCompare(b.worker_name)
   );
@@ -488,6 +563,7 @@ function renderTable(filteredRecords, fleetRecordsAllMonths) {
         <tr>
           <td>${escapeHtml(row.worker_name)}</td>
           <td><span class="badge">${escapeHtml(row.fleet)}</span></td>
+          <td><span class="badge">${escapeHtml(row.rank_label || "—")}</span></td>
           <td class="numeric">${formatHours(row.publicado)}</td>
           <td class="numeric">${formatHours(row.efectuado)}</td>
           <td class="numeric">${formatSignedHours(diff)}</td>
@@ -511,6 +587,8 @@ function summarizeByWorker(records) {
         worker_id: d.worker_id,
         worker_name: d.worker_name,
         fleet: d.fleet,
+        rank_code: d.rank_code,
+        rank_label: d.rank_label,
         publicado: 0,
         efectuado: 0
       });
@@ -549,9 +627,7 @@ function getSelectedCalendarYear(records) {
 
   const years = records.map((d) => d.year).filter(Boolean);
 
-  if (!years.length) {
-    return new Date().getFullYear();
-  }
+  if (!years.length) return new Date().getFullYear();
 
   return Math.max(...years);
 }
