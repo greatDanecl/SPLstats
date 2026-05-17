@@ -192,6 +192,9 @@ function normalizeRow(row, file, sheetName) {
     "rank_code",
     "Rank Code",
     "RANK_CODE",
+    "rank code",
+    "Rank_Code",
+    "RANK CODE",
     "rank",
     "Rank",
     "cargo",
@@ -441,8 +444,12 @@ function inferFleet(value) {
 function normalizeRankCode(value) {
   const text = cleanText(value).toUpperCase();
 
-  if (text === "CP" || text.includes("CAP")) return "CP";
-  if (text === "FO" || text.includes("PRI")) return "FO";
+  if (text === "CP") return "CP";
+  if (text === "FO") return "FO";
+  if (text.includes("CAP")) return "CP";
+  if (text.includes("COMAND")) return "CP";
+  if (text.includes("PRI")) return "FO";
+  if (text.includes("FIRST")) return "FO";
 
   return "";
 }
