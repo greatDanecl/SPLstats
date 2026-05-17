@@ -34,6 +34,7 @@ async function init() {
     rawData = normalizeRecords(payload.records || payload || []);
 
     populateFleetFilter();
+    resetDependentFilters();
     bindEvents();
     render();
   } catch (error) {
@@ -61,8 +62,12 @@ function normalizeRecords(records) {
         record.rank_code ||
         record.Rank_Code ||
         record.RANK_CODE ||
+        record["Rank Code"] ||
+        record["RANK CODE"] ||
         record.rank ||
+        record.Rank ||
         record.cargo ||
+        record.Cargo ||
         "";
 
       return {
@@ -133,11 +138,14 @@ function parseDate(value) {
   }
 
   const dmy = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+
   if (dmy) {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]) - 1;
     let year = Number(dmy[3]);
+
     if (year < 100) year += 2000;
+
     return new Date(year, month, day);
   }
 
@@ -182,8 +190,12 @@ function normalizeSource(value) {
 function normalizeRankCode(value) {
   const text = String(value || "").trim().toUpperCase();
 
-  if (text === "CP" || text.includes("CAP")) return "CP";
-  if (text === "FO" || text.includes("PRI")) return "FO";
+  if (text === "CP") return "CP";
+  if (text === "FO") return "FO";
+  if (text.includes("CAP")) return "CP";
+  if (text.includes("COMAND")) return "CP";
+  if (text.includes("PRI")) return "FO";
+  if (text.includes("FIRST")) return "FO";
 
   return "";
 }
@@ -222,17 +234,11 @@ function populateFleetFilter() {
   `;
 }
 
-function populateRankFilter(records) {
-  const ranks = [
-    { code: "CP", label: "Capitán" },
-    { code: "FO", label: "Primer Oficial" }
-  ].filter((rank) => records.some((d) => d.rank_code === rank.code));
-
+function populateRankFilter() {
   els.rankFilter.innerHTML = `
     <option value="">Todos los cargos</option>
-    ${ranks
-      .map((rank) => `<option value="${rank.code}">${rank.label}</option>`)
-      .join("")}
+    <option value="CP">Capitán</option>
+    <option value="FO">Primer Oficial</option>
   `;
 
   els.rankFilter.disabled = !els.fleetFilter.value;
@@ -262,6 +268,16 @@ function populateWorkerFilter(records) {
   els.workerFilter.disabled = !els.fleetFilter.value;
 }
 
+function resetDependentFilters() {
+  els.rankFilter.innerHTML = `<option value="">Todos los cargos</option>`;
+  els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
+  els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
+
+  els.rankFilter.disabled = true;
+  els.monthFilter.disabled = true;
+  els.workerFilter.disabled = true;
+}
+
 function bindEvents() {
   els.fleetFilter.addEventListener("change", () => {
     els.rankFilter.value = "";
@@ -270,7 +286,7 @@ function bindEvents() {
 
     const fleetRecords = rawData.filter((d) => d.fleet === els.fleetFilter.value);
 
-    populateRankFilter(fleetRecords);
+    populateRankFilter();
     populateMonthFilter(fleetRecords);
     populateWorkerFilter(fleetRecords);
 
@@ -301,14 +317,7 @@ function bindEvents() {
 
   els.clearFilters?.addEventListener("click", () => {
     els.fleetFilter.value = "";
-    els.rankFilter.innerHTML = `<option value="">Todos los cargos</option>`;
-    els.monthFilter.innerHTML = `<option value="">Todos los meses</option>`;
-    els.workerFilter.innerHTML = `<option value="">Todos los trabajadores</option>`;
-
-    els.rankFilter.disabled = true;
-    els.monthFilter.disabled = true;
-    els.workerFilter.disabled = true;
-
+    resetDependentFilters();
     render();
   });
 }
