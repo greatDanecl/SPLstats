@@ -12,16 +12,34 @@ const OUTPUT_DIR = path.join(ROOT, "data");
 const OUTPUT_FILE = path.join(OUTPUT_DIR, "dashboard-data.json");
 
 const SUPPORTED_EXTENSIONS = new Set([".xlsx", ".xls"]);
+
 const MONTHS = {
-  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
-  ENE: 0, ABR: 3, AGO: 7, DIC: 11
+  JAN: 0,
+  FEB: 1,
+  MAR: 2,
+  APR: 3,
+  MAY: 4,
+  JUN: 5,
+  JUL: 6,
+  AUG: 7,
+  SEP: 8,
+  OCT: 9,
+  NOV: 10,
+  DEC: 11,
+  ENE: 0,
+  ABR: 3,
+  AGO: 7,
+  DIC: 11
 };
 
 main();
 
 function main() {
   ensureDirectory(OUTPUT_DIR);
+
+  if (!fs.existsSync(INPUT_DIR)) {
+    throw new Error(`No existe la carpeta ${INPUT_DIR}`);
+  }
 
   const files = fs
     .readdirSync(INPUT_DIR)
@@ -57,10 +75,13 @@ function main() {
   }
 
   const workerFleet = buildWorkerFleetMap(tempRows);
+  const workerRank = buildWorkerRankMap(tempRows);
 
   const records = tempRows
     .map((row) => {
       const fleet = row.fleet || workerFleet.get(row.worker_id) || "";
+      const rank_code = row.rank_code || workerRank.get(row.worker_id) || "";
+      const rank_label = normalizeRankLabel(rank_code);
 
       if (!fleet) return null;
 
@@ -70,6 +91,8 @@ function main() {
         worker_name: row.worker_name,
         aircraft_type_desc: row.aircraft_type_desc,
         fleet,
+        rank_code,
+        rank_label,
         source: row.source,
         hours: row.hours,
         source_file: row.source_file,
@@ -94,6 +117,7 @@ function normalizeRow(row, file, sheetName) {
   const workerId = cleanText(
     pick(row, [
       "crew_id",
+      "Crew ID",
       "Staff Num",
       "staff_num",
       "worker_id",
@@ -101,17 +125,31 @@ function normalizeRow(row, file, sheetName) {
       "rut",
       "RUT",
       "codigo",
-      "Código"
+      "Código",
+      "CODIGO",
+      "legajo"
     ])
   );
 
   if (!workerId) return null;
 
-  const firstName = cleanText(pick(row, ["First Name", "first_name"]));
-  const lastName = cleanText(pick(row, ["Last Name", "last_name"]));
+  const firstName = cleanText(pick(row, ["First Name", "first_name", "firstname"]));
+  const lastName = cleanText(pick(row, ["Last Name", "last_name", "lastname"]));
 
   const workerName =
-    cleanText(pick(row, ["nombre_completo", "worker_name", "name", "Nombre", "Trabajador"])) ||
+    cleanText(
+      pick(row, [
+        "nombre_completo",
+        "worker_name",
+        "name",
+        "Nombre",
+        "TRABAJADOR",
+        "Trabajador",
+        "tripulante",
+        "Tripulante",
+        "crew_name"
+      ])
+    ) ||
     cleanText(`${lastName} ${firstName}`) ||
     workerId;
 
@@ -122,7 +160,11 @@ function normalizeRow(row, file, sheetName) {
     "date",
     "fecha",
     "Fecha",
+    "FECHA",
+    "flight_date",
+    "duty_date",
     "DIA",
+    "Día",
     "dia"
   ]);
 
@@ -131,10 +173,34 @@ function normalizeRow(row, file, sheetName) {
   if (!date) return null;
 
   const aircraft =
-    cleanText(pick(row, ["aircraft_type_desc", "Fleet", "fleet", "aircraft_type", "Aircraft Type"])) ||
-    "";
+    cleanText(
+      pick(row, [
+        "aircraft_type_desc",
+        "AIRCRAFT_TYPE_DESC",
+        "Aircraft Type Desc",
+        "Fleet",
+        "fleet",
+        "aircraftType",
+        "aircraft_type",
+        "Aircraft Type",
+        "tipo_avion",
+        "Tipo Avion"
+      ])
+    ) || "";
+
+  const rankRaw = pick(row, [
+    "rank_code",
+    "Rank Code",
+    "RANK_CODE",
+    "rank",
+    "Rank",
+    "cargo",
+    "Cargo"
+  ]);
 
   const fleet = inferFleet(aircraft);
+  const rank_code = normalizeRankCode(rankRaw);
+  const rank_label = normalizeRankLabel(rankRaw);
 
   const blockTime = pick(row, [
     "block_time",
@@ -143,14 +209,15 @@ function normalizeRow(row, file, sheetName) {
     "blh",
     "hours",
     "Horas",
-    "horas"
+    "horas",
+    "HRS",
+    "hrs",
+    "total_hours"
   ]);
 
   const hours = normalizeHours(blockTime);
 
-  const source =
-    inferSourceFromRow(row) ||
-    inferSourceFromFilename(file);
+  const source = inferSourceFromRow(row) || inferSourceFromFilename(file);
 
   return {
     date,
@@ -158,6 +225,8 @@ function normalizeRow(row, file, sheetName) {
     worker_name: workerName,
     aircraft_type_desc: aircraft,
     fleet,
+    rank_code,
+    rank_label,
     source,
     hours,
     source_file: file,
@@ -171,6 +240,18 @@ function buildWorkerFleetMap(rows) {
   for (const row of rows) {
     if (row.worker_id && row.fleet && !map.has(row.worker_id)) {
       map.set(row.worker_id, row.fleet);
+    }
+  }
+
+  return map;
+}
+
+function buildWorkerRankMap(rows) {
+  const map = new Map();
+
+  for (const row of rows) {
+    if (row.worker_id && row.rank_code && !map.has(row.worker_id)) {
+      map.set(row.worker_id, row.rank_code);
     }
   }
 
@@ -294,7 +375,7 @@ function normalizeHours(value) {
   if (value === null || value === undefined || value === "") return 0;
 
   if (value instanceof Date && !isNaN(value)) {
-    return value.getHours() + value.getMinutes() / 60 + value.getSeconds() / 3600;
+    return round2(value.getHours() + value.getMinutes() / 60 + value.getSeconds() / 3600);
   }
 
   if (typeof value === "number") {
@@ -353,6 +434,24 @@ function inferFleet(value) {
   ) {
     return "Narrow Body";
   }
+
+  return "";
+}
+
+function normalizeRankCode(value) {
+  const text = cleanText(value).toUpperCase();
+
+  if (text === "CP" || text.includes("CAP")) return "CP";
+  if (text === "FO" || text.includes("PRI")) return "FO";
+
+  return "";
+}
+
+function normalizeRankLabel(value) {
+  const code = normalizeRankCode(value);
+
+  if (code === "CP") return "Capitán";
+  if (code === "FO") return "Primer Oficial";
 
   return "";
 }
